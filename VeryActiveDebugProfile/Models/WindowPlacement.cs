@@ -1,0 +1,14 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace VeryActiveDebugProfile.Models;
+
+public class WindowPlacement
+{
+    public double Top { get; set; }
+    public double Left { get; set; }
+    public double Width { get; set; }
+    public double Height { get; set; }
+    public string? WindowState { get; set; }
+}
