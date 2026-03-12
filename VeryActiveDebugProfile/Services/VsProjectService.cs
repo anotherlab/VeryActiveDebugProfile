@@ -9,7 +9,6 @@ using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using System.Text.Json;
 using System.Xml.Linq;
-using VeryActiveDebugProfile.Models;
 
 namespace VeryActiveDebugProfile.Services;
 
@@ -21,12 +20,12 @@ public class VsProjectService
     [DllImport("ole32.dll")]
     static extern int CreateBindCtx(int reserved, out IBindCtx ppbc);
 
-    public void SendMessage(string message)
+    public static void SendMessage(string message)
     {
         WeakReferenceMessenger.Default.Send(new StatusChangedMessage(message));
     }
 
-    public List<string> GetMauiProjectsByInstance(VsInstance vsInstance)
+    public static List<string> GetMauiProjectsByInstance(VsInstance vsInstance)
     {
         var result = new List<string>();
 
@@ -40,7 +39,7 @@ public class VsProjectService
 
         return result;
     }
-    public List<string> GetMauiProjectsByInstances(List<VsInstance> vsInstances)
+    public static List<string> GetMauiProjectsByInstances(List<VsInstance> vsInstances)
     {
         var result = new List<string>();
 
@@ -61,8 +60,8 @@ public class VsProjectService
 
         try
         {
-            GetRunningObjectTable(0, out IRunningObjectTable rot);
-            CreateBindCtx(0, out IBindCtx ctx);
+            _ = GetRunningObjectTable(0, out IRunningObjectTable rot);
+            _ = CreateBindCtx(0, out IBindCtx ctx);
 
             rot.EnumRunning(out IEnumMoniker enumMoniker);
             IMoniker[] monikers = new IMoniker[1];
@@ -71,7 +70,7 @@ public class VsProjectService
             {
                 monikers[0].GetDisplayName(ctx, null, out string displayName);
 
-                if (displayName.IndexOf("VisualStudio.DTE") >= 0)
+                if (displayName.Contains("VisualStudio.DTE", StringComparison.CurrentCulture))
                 {
                     try
                     {
@@ -86,7 +85,7 @@ public class VsProjectService
                         {
                             Version = dte.Version,
                             SolutionPath = solution,
-                            Projects = new List<VsProject>()
+                            Projects = []
                         };
 
                         // Get process ID safely via main window handle

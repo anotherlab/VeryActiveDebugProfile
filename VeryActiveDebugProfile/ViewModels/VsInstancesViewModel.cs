@@ -3,15 +3,8 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Hardcodet.Wpf.TaskbarNotification;
 using Microsoft.Toolkit.Uwp.Notifications;
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
-using System.Text;
-using System.Windows.Forms;
-using System.Windows.Threading;
-using VeryActiveDebugProfile.Models;
-using VeryActiveDebugProfile.Services;
 
 namespace VeryActiveDebugProfile.ViewModels;
 
@@ -59,28 +52,17 @@ public partial class VsInstancesViewModel : ObservableObject
     [ObservableProperty]
     bool _updateProgFiles = false;
 
-    public List<VsInstance> vsInstances { get; } = [];
+    public List<VsInstance> VsInstances { get; } = [];
 
-    //public AsyncObservableCollection<LogEntry> LogEntries { get; } = [];
     public ObservableCollection<LogEntry> LogEntries { get; } = [];
 
     public void AddLog(string message)
     {
-        //Task.Run(() =>
-        //{
-        //    LogEntries.Add(new LogEntry
-        //    {
-        //        Timestamp = DateTime.Now,
-        //        Message = message
-        //    });
-        //});
-
         LogEntries.Add(new LogEntry
         {
             Timestamp = DateTime.Now,
             Message = message
         });
-
 
         if (LogEntries.Count > MaxEntries)
             LogEntries.RemoveAt(0); // remove oldest
@@ -95,7 +77,7 @@ public partial class VsInstancesViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void ShowMainWindow()
+    private static void ShowMainWindow()
     {
         App.Current.MainWindow!.Show();
         App.Current.MainWindow!.WindowState = System.Windows.WindowState.Normal;
@@ -103,7 +85,7 @@ public partial class VsInstancesViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void Exit()
+    private static void Exit()
     {
         App.TrayIcon?.Dispose();
         App.Current.Shutdown();
@@ -119,28 +101,26 @@ public partial class VsInstancesViewModel : ObservableObject
             });
     }
 
-    private Uri GetImagePath(string imageFileName)
+    private static Uri GetImagePath(string imageFileName)
     {
         var imagePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Images", imageFileName); // Assumes an 'Images' folder in output directory
         return (new Uri(imagePath));
-
-        //return $"pack://application:,,,/Resources/{imageName}";
     }
 
     public void RefreshVs()
     {
-        Status = "Scanning for Visual Studio instances...";
+        AddLog("Scanning for Visual Studio instances...");
         try
         {
             var service = new Services.VsProjectService();
             var instances = service.GetVsInstances();
-            vsInstances.Clear();
+            VsInstances.Clear();
             foreach (var instance in instances)
             {
-                vsInstances.Add(instance);
+                VsInstances.Add(instance);
             }
 
-            var mauiProjects = service.GetMauiProjectsByInstances(instances);
+            var mauiProjects = VsProjectService.GetMauiProjectsByInstances(instances);
 
             AddLog($"Found {mauiProjects.Count} MAUI projects.");
 
@@ -161,9 +141,7 @@ public partial class VsInstancesViewModel : ObservableObject
             {
                 if (UpdateCount > 0)
                 {
-                    Status = $"Updated {UpdateCount} MAUI project(s) successfully.";
-
-                    AddLog(Status);
+                    AddLog($"Updated {UpdateCount} MAUI project(s) successfully.");
 
                     var sledgeUri = GetImagePath("sledge.jpg");
 
@@ -175,12 +153,12 @@ public partial class VsInstancesViewModel : ObservableObject
                         .AddInlineImage(sledgeUri)
                         .AddText($"Updated {mauiProjects.Count} MAUI project(s) successfully.")
                         .Show();
+
                     // Not seeing the Show() method? Make sure you have version 7.0, and if you're using .NET 6 (or later),
                     // then your TFM must be net6.0-windows10.0.17763.0 or greater
 
                 }
             }
-            WeakReferenceMessenger.Default.Send(new UpdateGridMessage(string.Empty));
         }
         catch (Exception ex)
         {
