@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.Messaging;
 using stdole;
 using System.Management;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
@@ -26,10 +27,25 @@ namespace VeryActiveDebugProfile
         private const int DBT_DEVICEARRIVAL = 0x8000;
         private const int DBT_DEVICEREMOVECOMPLETE = 0x8004;
 
+        // Add these constants at class level
+        private const int DBT_DEVTYP_DEVICEINTERFACE = 0x00000005;
+        private const uint DEVICE_NOTIFY_WINDOW_HANDLE = 0x00000000;
+
+        // GUIDs for USB and Windows Portable Devices (WPD)
+        private static readonly Guid GUID_DEVINTERFACE_USB_DEVICE = new Guid("A5DCBF10-6530-11D2-901F-00C04FB951ED");
+        //private static readonly Guid GUID_DEVINTERFACE_WPD = new Guid("EEC5AD98-8080-425F-922A-DABF3DE3F69A");
+
+        //private IntPtr _deviceNotificationHandle = IntPtr.Zero;
+        private IntPtr _deviceNotificationHandleUsb = IntPtr.Zero;
+        //private IntPtr _deviceNotificationHandleWpd = IntPtr.Zero;
+
         private readonly IWindowPlacementService _placementService =
             new WindowPlacementService();
 
         VsInstancesViewModel _viewModel = new VsInstancesViewModel();
+
+        string vid = string.Empty;
+        string lastDevice = string.Empty;
 
         public MainWindow()
         {
@@ -60,8 +76,9 @@ namespace VeryActiveDebugProfile
 
             SendMessage("App started...");
 
-            UpdateAndroidStatus();
+            UpdateAndroidStatus("VID");
         }
+
         public void SendMessage(string message)
         {
             WeakReferenceMessenger.Default.Send(new StatusChangedMessage(message));
@@ -79,111 +96,199 @@ namespace VeryActiveDebugProfile
             }
         }
 
-        //protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
-        //{
-        //    e.Cancel = true;   // prevent app from exiting
-        //    WindowState = WindowState.Minimized; // send to tray
-        //}
-
         protected override void OnSourceInitialized(EventArgs e)
         {
             base.OnSourceInitialized(e);
             HwndSource source = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
             source.AddHook(WndProc);
+
+            // Register for device notifications
+
+            RegisterForDeviceNotifications(source.Handle);
+        }
+
+        // Add cleanup
+        protected override void OnClosed(EventArgs e)
+        {
+            if (_deviceNotificationHandleUsb != IntPtr.Zero)
+            {
+                UnregisterDeviceNotification(_deviceNotificationHandleUsb);
+                _deviceNotificationHandleUsb = IntPtr.Zero;
+            }
+            //if (_deviceNotificationHandleWpd != IntPtr.Zero)
+            //{
+            //    UnregisterDeviceNotification(_deviceNotificationHandleWpd);
+            //    _deviceNotificationHandleWpd = IntPtr.Zero;
+            //}
+            base.OnClosed(e);
         }
 
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
+            // If a USB device is connected or disconnected, wParam will indicate the event type (arrival or removal)
             if (msg == WM_DEVICECHANGE)
             {
                 int eventType = wParam.ToInt32();
 
                 if (eventType == DBT_DEVICEARRIVAL)
                 {
-                    SendMessage("Device connected, checking for Android devices...");
+                    // When a device is connected, lParam points to a structure with details about the device.
+                    // We can extract the device path from it.
+                    string devicePath = GetDeviceInterfacePath(lParam);
+
+                    if (!string.IsNullOrEmpty(devicePath))
+                    {
+                        // Notify the UI about the new device
+                        SendMessage($"Device arrived: {devicePath}");
+
+                        var vid = PnpHelper.GetVendorAndProductfromPath(devicePath);
+                        //var tmpVid = PnpHelper.GetVendorAndProductfromPath(devicePath);
+
+                        //if (PnpHelper.GetDeviceName(tmpVid) is string deviceName)
+                        //{
+                        //    vid = tmpVid;
+                        //    SendMessage("Android device detected!");
+                        //}
+                    }
+                    else
+                    {
+                        // no device path means we can't identify the device, but we know something was connected
+                        // It wont be an Android device and we can ignore it
+                        return IntPtr.Zero;
+                    }
+
                     // Small delay to allow Windows to finish driver initialization
+                    // This will tell us if the connected device is an Android device or not
                     Dispatcher.InvokeAsync(async () => {
-                        await System.Threading.Tasks.Task.Delay(1000);
-                        UpdateAndroidStatus();
+                        await System.Threading.Tasks.Task.Delay(10);
+                        UpdateAndroidStatus(vid);
                     });
                 }
                 else if (eventType == DBT_DEVICEREMOVECOMPLETE)
                 {
                     SendMessage("Device disconnected");
-                    UpdateAndroidStatus();
+
+                    vid = string.Empty;
+
+                    UpdateAndroidStatus(vid);
                 }
             }
             return IntPtr.Zero;
         }
 
-        private void UpdateAndroidStatus()
+        private bool UpdateAndroidStatus(string deviceVendor)
         {
-            _viewModel.DeviceName = GetConnectedAndroidDevice();
+            string vid = PnpHelper.GetDeviceName(deviceVendor) ?? String.Empty;
+
+            _viewModel.DeviceName = vid;
+
+            return vid != String.Empty;
         }
 
-        private string GetConnectedAndroidDevice()
+        // Register for device notifications
+
+        // Extract device interface path from lParam
+        private string GetDeviceInterfacePath(IntPtr lParam)
         {
+            if (lParam == IntPtr.Zero)
+                return string.Empty;
+
             try
             {
-                // Querying Win32_PnPEntity for common Android identifiers
-                // For my phone, the service is "WUDFWpdMtp" and description is "SM-908U"
-                // https://learn.microsoft.com/en-us/windows/win32/wmisdk/wql-sql-for-wmi
-
-                // If you search for Android devices, it's a more accurate query to look for Android devices
-                // but it doesn't return the model name, just something like "SAMSUNG Android ADB Interface".
-                // Searching for the WUDFWpdMtp service returns the model name but may be less reliable
-                // across different devices. Adjust as needed for your specific devices and drivers.
-                // Sample query for Android devices:
-
-                // SELECT Description, Name, Manufacturer, Service, PNPClass, PNPDeviceID FROM Win32_PnPEntity WHERE Description LIKE '%Android%'
-
-                /* PowerShell command to find Android devices:
-                 * Get-PnpDevice -FriendlyName "*Android*" -Status OK | Select-Object -Property FriendlyName, Service, PNPDeviceID
-                 * or
-                 * Get-CimInstance -ClassName Win32_PnPEntity |
-                 *     Where-Object { $_.Service -eq 'WUDFWpdMtp' } |
-                 *     Select-Object Description, DeviceID, PNPDeviceID, Manufacturer
-                 * 
-                 * This can help you identify the correct WMI query for your specific devices.
-                 * https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_wql?view=powershell-7.5
-                 */
-
-
-                using var searcher = new ManagementObjectSearcher(
-                    "SELECT Description, Name FROM Win32_PnPEntity " +
-                    "WHERE (Service='WUDFWpdMtp') " +
-                    "AND PNPDeviceID LIKE'%ANDROID%' " +
-                    "AND Present = True");
-
-                var devices = searcher.Get();
-
-                foreach (var device in devices)
+                var hdr = Marshal.PtrToStructure<DEV_BROADCAST_HDR>(lParam);
+                if (hdr.dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE)
                 {
-                    // Return the first matching description (e.g., "SAMSUNG Android ADB Interface")
-                    var deviceName = device["Description"]?.ToString() ?? device["Name"]?.ToString();
-
-                    if ( !String.IsNullOrEmpty(deviceName))
-                    {
-                        return deviceName;
-                    }
+                    var deviceInterface = Marshal.PtrToStructure<DEV_BROADCAST_DEVICEINTERFACE>(lParam);
+                    return deviceInterface.dbcc_name?.TrimEnd('\0') ?? string.Empty;
                 }
             }
-            catch (ManagementException mex)
+            catch
             {
-                // WMI query failed
-                SendMessage("WMI Error: " + mex.Message);
+                // Ignore marshaling errors
             }
-            catch (InvalidCastException)
-            {
-                // Some property couldn't be cast. This can happen when no rows are returned
-                // Just ignore it
-            }
-            catch (Exception ex)
-            {
-                SendMessage("WMI Error: " + ex.Message);
-            }
-
             return string.Empty;
         }
+
+        private void RegisterForDeviceNotifications(IntPtr windowHandle)
+        {
+            // Register for USB device interface notifications
+            var filterUsb = new DEV_BROADCAST_DEVICEINTERFACE
+            {
+                dbcc_size = Marshal.SizeOf(typeof(DEV_BROADCAST_DEVICEINTERFACE)),
+                dbcc_devicetype = DBT_DEVTYP_DEVICEINTERFACE,
+                dbcc_reserved = 0,
+                dbcc_classguid = GUID_DEVINTERFACE_USB_DEVICE,
+                dbcc_name = string.Empty
+            };
+
+            IntPtr bufferUsb = Marshal.AllocHGlobal(filterUsb.dbcc_size);
+            try
+            {
+                Marshal.StructureToPtr(filterUsb, bufferUsb, false);
+                _deviceNotificationHandleUsb = RegisterDeviceNotification(windowHandle, bufferUsb, DEVICE_NOTIFY_WINDOW_HANDLE);
+                if (_deviceNotificationHandleUsb == IntPtr.Zero)
+                {
+                    SendMessage("Failed to register for USB device notifications");
+                }
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(bufferUsb);
+            }
+
+            // Register for WPD (portable devices) notifications
+            //var filterWpd = new DEV_BROADCAST_DEVICEINTERFACE
+            //{
+            //    dbcc_size = Marshal.SizeOf(typeof(DEV_BROADCAST_DEVICEINTERFACE)),
+            //    dbcc_devicetype = DBT_DEVTYP_DEVICEINTERFACE,
+            //    dbcc_reserved = 0,
+            //    dbcc_classguid = GUID_DEVINTERFACE_WPD,
+            //    dbcc_name = string.Empty
+            //};
+
+            //IntPtr bufferWpd = Marshal.AllocHGlobal(filterWpd.dbcc_size);
+            //try
+            //{
+            //    Marshal.StructureToPtr(filterWpd, bufferWpd, false);
+            //    _deviceNotificationHandleWpd = RegisterDeviceNotification(windowHandle, bufferWpd, DEVICE_NOTIFY_WINDOW_HANDLE);
+            //    if (_deviceNotificationHandleWpd == IntPtr.Zero)
+            //    {
+            //        SendMessage("Failed to register for WPD device notifications");
+            //    }
+            //}
+            //finally
+            //{
+            //    Marshal.FreeHGlobal(bufferWpd);
+            //}
+        }
+
+        #region P/Invoke Declarations
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct DEV_BROADCAST_HDR
+        {
+            public int dbch_size;
+            public int dbch_devicetype;
+            public int dbch_reserved;
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        private struct DEV_BROADCAST_DEVICEINTERFACE
+        {
+            public int dbcc_size;
+            public int dbcc_devicetype;
+            public int dbcc_reserved;
+            public Guid dbcc_classguid;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+            public string dbcc_name;
+        }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern IntPtr RegisterDeviceNotification(IntPtr hRecipient, IntPtr notificationFilter, uint flags);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool UnregisterDeviceNotification(IntPtr handle);
+
+        #endregion
     }
 }

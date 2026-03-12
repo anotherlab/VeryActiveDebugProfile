@@ -110,6 +110,8 @@ public class VsProjectService
                         }
                         vsInstance.ProcessId = processId;
 
+                        SendMessage($"Enumerating projects...");
+
                         // Enumerate all loaded projects including nested solution folders
                         EnumerateProjects(dte.Solution.Projects, vsInstance.Projects);
 
