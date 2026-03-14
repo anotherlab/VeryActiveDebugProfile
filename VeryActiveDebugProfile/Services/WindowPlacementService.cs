@@ -116,7 +116,7 @@ public class WindowPlacementService : IWindowPlacementService
                 }),
             IntPtr.Zero);
 
-        return monitors.ToArray();
+        return [.. monitors];
     }
 
     private delegate bool MonitorEnumProc(

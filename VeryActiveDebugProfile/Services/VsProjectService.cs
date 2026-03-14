@@ -1,24 +1,21 @@
-﻿//using Microsoft.VisualStudio.OLE.Interop;
-using CommunityToolkit.Mvvm.Messaging;
+﻿using CommunityToolkit.Mvvm.Messaging;
 using EnvDTE;
-using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
-using System.Text;
-using System.Text.Json;
 using System.Xml.Linq;
 
 namespace VeryActiveDebugProfile.Services;
 
 public class VsProjectService
 {
+#pragma warning disable SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
     [DllImport("ole32.dll")]
     static extern int GetRunningObjectTable(int reserved, out IRunningObjectTable prot);
 
     [DllImport("ole32.dll")]
     static extern int CreateBindCtx(int reserved, out IBindCtx ppbc);
+#pragma warning restore SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
 
     public static void SendMessage(string message)
     {
@@ -39,6 +36,13 @@ public class VsProjectService
 
         return result;
     }
+
+    /// <summary>
+    /// Retrieves the list of MAUI project paths from the specified Visual Studio instances.
+    /// </summary>
+    /// <param name="vsInstances">A list of Visual Studio instances from which to collect MAUI project paths. Cannot be null.</param>
+    /// <returns>A list of strings containing the paths of all MAUI projects found in the provided Visual Studio instances. The
+    /// list will be empty if no projects are found.</returns>
     public static List<string> GetMauiProjectsByInstances(List<VsInstance> vsInstances)
     {
         var result = new List<string>();
@@ -51,35 +55,51 @@ public class VsProjectService
         return result;
     }
 
+    /// <summary>
+    /// Retrieves a list of running Visual Studio instances that have an open solution and at least one loaded project.
+    /// </summary>
+    /// <remarks>Only Visual Studio instances with an open solution and at least one loaded project are
+    /// included in the returned list. Instances without an open solution or without loaded projects are excluded. This
+    /// method may skip instances if they cannot be accessed due to COM errors or if required information is
+    /// unavailable.</remarks>
+    /// <returns>A list of <see cref="VsInstance"/> objects representing the active Visual Studio instances with open solutions
+    /// and loaded projects. The list is empty if no such instances are found.</returns>
     public List<VsInstance> GetVsInstances()
     {
         // Implementation to get VS instances
         var results = new List<VsInstance>();
         var vsFound = 0;
-        SendMessage($"Scanning ROT...");
 
         try
         {
+            // Get the ROT and enumerate running objects
             _ = GetRunningObjectTable(0, out IRunningObjectTable rot);
             _ = CreateBindCtx(0, out IBindCtx ctx);
 
+            // Get the list of running objects from the ROT
             rot.EnumRunning(out IEnumMoniker enumMoniker);
             IMoniker[] monikers = new IMoniker[1];
 
             while (enumMoniker.Next(1, monikers, IntPtr.Zero) == 0)
             {
+                // Get the display name of the running object
                 monikers[0].GetDisplayName(ctx, null, out string displayName);
 
+                // If we are Visual Studio, try to get the DTE object and extract solution and project information
                 if (displayName.Contains("VisualStudio.DTE", StringComparison.CurrentCulture))
                 {
                     try
                     {
                         rot.GetObject(monikers[0], out object obj);
+
                         dynamic dte = obj;
 
                         string solution = dte.Solution.FullName;
-                        if (string.IsNullOrEmpty(solution))
-                            continue; // skip if no solution open
+
+                        // Allow projects without a solution to be included, but skip instances
+                        // that have no solution and no projects to avoid noise
+                        if (string.IsNullOrEmpty(solution) && (dte.Solution.Projects.Count == 0))
+                            continue; 
 
                         var vsInstance = new VsInstance
                         {
@@ -88,28 +108,10 @@ public class VsProjectService
                             Projects = []
                         };
 
-                        // Get process ID safely via main window handle
-                        int processId = 0;
-                        try
-                        {
-                            int hwnd = dte.MainWindow.HWnd;
-                            var processes = System.Diagnostics.Process.GetProcessesByName("devenv");
-                            foreach (var p in processes)
-                            {
-                                if (p.MainWindowHandle.ToInt32() == hwnd)
-                                {
-                                    processId = p.Id;
-                                    break;
-                                }
-                            }
-                        }
-                        catch
-                        {
-                            processId = 0;
-                        }
-                        vsInstance.ProcessId = processId;
-
-                        SendMessage($"Enumerating projects...");
+                        if (string.IsNullOrEmpty(solution))
+                            SendMessage($"Project without a solution found");
+                        else
+                            SendMessage($"Open solution found: {solution}. Enumerating projects...");
 
                         // Enumerate all loaded projects including nested solution folders
                         EnumerateProjects(dte.Solution.Projects, vsInstance.Projects);
@@ -119,9 +121,6 @@ public class VsProjectService
                         // Only include instances that have at least one MAUI project (optional filter)
                         if (vsInstance.Projects.Count > 0)
                             results.Add(vsInstance);
-
-                        //if (VsInstanceHasMauiProjects(vsInstance))
-                        //    results.Add(vsInstance);
                     }
                     catch
                     {
@@ -130,24 +129,21 @@ public class VsProjectService
                 }
             }
 
-            SendMessage($"Scanned ROT: Found {vsFound} Visual Studio instance(s).");
-
-            // Output JSON
-            //string json = JsonSerializer.Serialize(results, new JsonSerializerOptions { WriteIndented = true });
-            //Console.WriteLine(json);
+            SendMessage($"Found {vsFound} Visual Studio instance(s).");
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error enumerating VS instances: {ex.Message}");
         }
 
-
         return results;
     }
 
-    // Recursive project enumerator to handle nested solution folders
-
-
+    /// <summary>
+    /// Determines whether the specified Visual Studio instance contains any MAUI projects.
+    /// </summary>
+    /// <param name="instance">The Visual Studio instance to inspect for MAUI projects. Cannot be null.</param>
+    /// <returns>true if at least one project in the instance is a MAUI project; otherwise, false.</returns>
     static bool VsInstanceHasMauiProjects(VsInstance instance)
     {
         foreach (var proj in instance.Projects)
@@ -158,6 +154,13 @@ public class VsProjectService
         return false;
     }
 
+    /// <summary>
+    /// Determines whether the specified project is a .NET MAUI project based on its project file contents.
+    /// </summary>
+    /// <remarks>This method inspects the project's file for the presence of the <UseMaui> element to identify
+    /// .NET MAUI projects. The project file must be accessible and well-formed XML.</remarks>
+    /// <param name="project">The project to evaluate for .NET MAUI compatibility. Must not be null and should have a valid project file path.</param>
+    /// <returns>true if the project file contains a <UseMaui> element set to true; otherwise, false.</returns>
     static bool IsMauiProject(Project project)
     {
         var filePath = project.FullName;
@@ -173,6 +176,11 @@ public class VsProjectService
                result;
     }
 
+    /// <summary>
+    /// Recursively enumerates all C# projects within the specified projects collection and adds them to the provided result list.
+    /// </summary>
+    /// <param name="projects">The collection of projects to search for C# projects. May include solution folders and nested projects.</param>
+    /// <param name="resultList">The list to which discovered C# projects are added. Must not be null.</param>
     static void EnumerateProjects(Projects projects, List<VsProject> resultList)
     {
         foreach (Project proj in projects)
@@ -198,7 +206,14 @@ public class VsProjectService
         }
     }
 
-    // Overload for ProjectItems in solution folders
+    /// <summary>
+    /// Recursively enumerates all C# project files within the specified project items collection and adds them to the
+    /// provided result list.
+    /// </summary>
+    /// <remarks>Only projects with a file name ending in ".csproj" are added to the result list. Solution
+    /// folders are traversed recursively to locate nested projects.</remarks>
+    /// <param name="items">The collection of project items to search for C# projects. May include solution folders and nested projects.</param>
+    /// <param name="resultList">The list to which discovered C# projects are added. Must not be null.</param>
     static void EnumerateProjects(ProjectItems items, List<VsProject> resultList)
     {
         foreach (ProjectItem item in items)
@@ -224,6 +239,17 @@ public class VsProjectService
     }
 
 
+    /// <summary>
+    /// Method to update the .csproj.user file with the specified ActiveDebugProfile. 
+    /// If the .user file does not exist, it will be created. 
+    /// If the ActiveDebugProfile already exists and matches the value, no changes will be made.
+    /// </summary>
+    /// <param name="csprojFullPath">The full path to the .csproj file.</param>
+    /// <param name="activeDebugProfile">The ActiveDebugProfile value to set.</param>
+    /// <returns>Returns 1 if the file was updated, 0 if no changes were made.</returns>
+    /// <exception cref="ArgumentException"></exception>
+    /// <exception cref="FileNotFoundException"></exception>
+    /// <exception cref="InvalidOperationException"></exception>
     public static int UpdateProjectFile(string csprojFullPath, string activeDebugProfile)
     {
         if (string.IsNullOrWhiteSpace(csprojFullPath))
