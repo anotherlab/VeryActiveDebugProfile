@@ -16,6 +16,9 @@
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
+# Codex files
+.dotnet/.dotnet
+
 # Mono auto generated files
 mono_crash.*
 

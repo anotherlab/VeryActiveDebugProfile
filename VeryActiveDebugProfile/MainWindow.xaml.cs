@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.Messaging;
+using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -29,7 +30,7 @@ namespace VeryActiveDebugProfile
 
         private static readonly VsInstancesViewModel _viewModel = new();
 
-        string vid = string.Empty;
+        private readonly Dictionary<string, string> _connectedAndroidPaths = new(StringComparer.OrdinalIgnoreCase);
 
         public MainWindow()
         {
@@ -117,6 +118,15 @@ namespace VeryActiveDebugProfile
             base.OnClosed(e);
         }
 
+        /// <summary>
+        /// Handler for receiving all window messages. We listen for WM_DEVICECHANGE to detect when devices are connected or disconnected.
+        /// </summary>
+        /// <param name="hwnd"></param>
+        /// <param name="msg"></param>
+        /// <param name="wParam"></param>
+        /// <param name="lParam"></param>
+        /// <param name="handled"></param>
+        /// <returns></returns>
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
             // If a USB device is connected or disconnected, wParam will indicate the event type (arrival or removal)
@@ -133,7 +143,7 @@ namespace VeryActiveDebugProfile
                     if (!string.IsNullOrEmpty(devicePath))
                     {
                         // Notify the UI about the new device.  Not all of them will be Android devices, but it's useful to see all device connections in the log.
-                        SendMessage($"Device arrived: {devicePath}");
+                        SendMessage($"Device connected: {devicePath}");
 
                         var vid = PnpHelper.GetVendorAndProductfromPath(devicePath);
 
@@ -142,8 +152,11 @@ namespace VeryActiveDebugProfile
 
                         if (manufacturer != null)
                         {
+                            _connectedAndroidPaths[devicePath] = vid;
                             SendMessage($"{manufacturer} device detected ");
 
+                            // Add a slight delay before updating the status to ensure the device is fully recognized by the system and PnP queries will succeed.
+                            // This can help with cases where the device information isn't immediately available.
                             Dispatcher.InvokeAsync(async () => {
                                 await System.Threading.Tasks.Task.Delay(100);
                                 UpdateAndroidStatus(vid);
@@ -160,11 +173,24 @@ namespace VeryActiveDebugProfile
                 }
                 else if (eventType == DBT_DEVICEREMOVECOMPLETE)
                 {
-                    SendMessage("Device disconnected");
+                    string devicePath = GetDeviceInterfacePath(lParam);
 
-                    vid = string.Empty;
+                    // We only need to update the status if an Android device was removed, so we check
+                    // if the device path is in our list of connected Android devices. If it is, we
+                    // remove it and update the status accordingly.
+                    if (!string.IsNullOrEmpty(devicePath) && _connectedAndroidPaths.Remove(devicePath))
+                    {
+                        SendMessage($"Device disconnected: {devicePath}");
 
-                    UpdateAndroidStatus(vid);
+                        if (_connectedAndroidPaths.Count == 0)
+                        {
+                            UpdateAndroidStatus(string.Empty);
+                        }
+                        else
+                        {
+                            UpdateAndroidStatus(_connectedAndroidPaths.Values.Last());
+                        }
+                    }
                 }
             }
             return IntPtr.Zero;

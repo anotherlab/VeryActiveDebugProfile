@@ -1,15 +1,16 @@
-﻿using System;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices;
+﻿using System.IO;
 using System.Text.Json;
 using System.Windows;
-using System.Windows.Interop;
 
 namespace VeryActiveDebugProfile.Services;
 
 public class WindowPlacementService : IWindowPlacementService
 {
+    private static readonly JsonSerializerOptions s_jsonSerializerOptions = new()
+    {
+        WriteIndented = true
+    };
+
     private readonly string _filePath;
 
     public WindowPlacementService()
@@ -73,10 +74,7 @@ public class WindowPlacementService : IWindowPlacementService
             WindowState = window.WindowState.ToString()
         };
 
-        var json = JsonSerializer.Serialize(placement, new JsonSerializerOptions
-        {
-            WriteIndented = true
-        });
+        var json = JsonSerializer.Serialize(placement, s_jsonSerializerOptions);
 
         File.WriteAllText(_filePath, json);
     }
@@ -100,11 +98,11 @@ public class WindowPlacementService : IWindowPlacementService
     {
         var monitors = new System.Collections.Generic.List<Rect>();
 
-        EnumDisplayMonitors(
+        NativeMethods.EnumDisplayMonitors(
             IntPtr.Zero,
             IntPtr.Zero,
-            new WindowPlacementService.MonitorEnumProc(
-                (IntPtr hMonitor, IntPtr hdcMonitor, ref WindowPlacementService.RECT lprcMonitor, IntPtr dwData) =>
+            new NativeMethods.MonitorEnumProc(
+                (hMonitor, hdcMonitor, ref lprcMonitor, dwData) =>
                 {
                     monitors.Add(new Rect(
                         lprcMonitor.Left,
@@ -119,25 +117,4 @@ public class WindowPlacementService : IWindowPlacementService
         return [.. monitors];
     }
 
-    private delegate bool MonitorEnumProc(
-        IntPtr hMonitor,
-        IntPtr hdcMonitor,
-        ref RECT lprcMonitor,
-        IntPtr dwData);
-
-    [DllImport("user32.dll")]
-    private static extern bool EnumDisplayMonitors(
-        IntPtr hdc,
-        IntPtr lprcClip,
-        MonitorEnumProc lpfnEnum,
-        IntPtr dwData);
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct RECT
-    {
-        public int Left;
-        public int Top;
-        public int Right;
-        public int Bottom;
-    }
 }
