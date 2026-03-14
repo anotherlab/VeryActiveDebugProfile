@@ -17,6 +17,21 @@ namespace VeryActiveDebugProfile.Services
 
     public static partial class NativeMethods
     {
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        internal delegate bool MonitorEnumProc(
+            IntPtr hMonitor,
+            IntPtr hdcMonitor,
+            ref RECT lprcMonitor,
+            IntPtr dwData);
+
         [LibraryImport("user32.dll", EntryPoint = "RegisterDeviceNotificationW", SetLastError = true)]
         public static partial SafeDeviceNotificationHandle RegisterDeviceNotification(
             IntPtr hRecipient,
@@ -27,6 +42,14 @@ namespace VeryActiveDebugProfile.Services
         [LibraryImport("user32.dll", EntryPoint = "UnregisterDeviceNotification", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         public static partial bool UnregisterDeviceNotification(IntPtr handle);
+
+        [LibraryImport("user32.dll", EntryPoint = "EnumDisplayMonitors")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static partial bool EnumDisplayMonitors(
+            IntPtr hdc,
+            IntPtr lprcClip,
+            MonitorEnumProc lpfnEnum,
+            IntPtr dwData);
     }
 
 }

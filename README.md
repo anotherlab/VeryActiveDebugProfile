@@ -3,14 +3,17 @@
 A Windows WPF utility that monitors Android device connections and automatically manages Visual Studio debugging profiles.
 
 ![.NET 10](https://img.shields.io/badge/.NET-10.0-blue)
+![WPF](https://img.shields.io/badge/UI_Framework-WPF-blue)
 ![Windows](https://img.shields.io/badge/Windows-10+-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
+![Very Active Debug Profile](Images/VeryActiveDebugProfile.gif)
+
 ## Overview
 
-Very ActiveDebugProfile is a system tray application that:
+Very ActiveDebugProfile is an application that:
 - 🔌 Monitors Android device connections/disconnections in real-time
-- 🛠️ Tracks running Visual Studio instances
+- 🛠️ Tracks running Visual Studio instances and updates user project files to use the connected Android device
 - 📱 Detects device changes using Windows Device Notifications API
 - 💾 Persists window placement across sessions
 - 🔔 Shows balloon notifications for device events
@@ -25,7 +28,7 @@ Very ActiveDebugProfile is a system tray application that:
 
 ### Visual Studio Integration
 - Enumerates running Visual Studio instances
-- Updates any open MAUI projects and updates the .cspro.user file to use the connected device
+- Updates any open MAUI projects and updates the .csproj.user file to use the connected device
 
 ### System Integration
 - Runs in system tray (minimizes to tray) (not yet implemeted)
@@ -42,7 +45,7 @@ Very ActiveDebugProfile is a system tray application that:
 
 ## Installation
 
-### From Release (not yet implemented)
+### From Releases (not yet implemented)
 1. Download the latest release from [Releases](https://github.com/anotherlab/VeryActiveDebugProfile/releases)
 2. Extract to your preferred location
 3. Run `VeryActiveDebugProfile.exe`

@@ -17,11 +17,30 @@ public class VsProjectService
     static extern int CreateBindCtx(int reserved, out IBindCtx ppbc);
 #pragma warning restore SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
 
-    public static void SendMessage(string message)
+    private static void SendMessage(string message)
     {
         WeakReferenceMessenger.Default.Send(new StatusChangedMessage(message));
     }
 
+    /// <summary>
+    /// Retrieves a list of .NET MAUI project names available in the current Visual Studio instances.
+    /// </summary>
+    /// <returns>A list of strings containing the names of all detected .NET MAUI projects. The list is empty if no MAUI projects
+    /// are found.</returns>
+    public List<string> GetMauiProjects()
+    {
+        var vsInstances = GetVsInstances();
+        var result = GetMauiProjectsByInstances(vsInstances);
+
+        return result;
+    }
+
+    /// <summary>
+    /// Retrieves the file paths of all MAUI projects contained within the specified Visual Studio instance.
+    /// </summary>
+    /// <param name="vsInstance">The Visual Studio instance from which to enumerate projects. Cannot be null.</param>
+    /// <returns>A list of strings representing the file paths of all MAUI projects in the given instance. The list is empty if
+    /// no MAUI projects are found.</returns>
     public static List<string> GetMauiProjectsByInstance(VsInstance vsInstance)
     {
         var result = new List<string>();
@@ -111,7 +130,7 @@ public class VsProjectService
                         if (string.IsNullOrEmpty(solution))
                             SendMessage($"Project without a solution found");
                         else
-                            SendMessage($"Open solution found: {solution}. Enumerating projects...");
+                            SendMessage($"Solution found: {solution}");
 
                         // Enumerate all loaded projects including nested solution folders
                         EnumerateProjects(dte.Solution.Projects, vsInstance.Projects);
@@ -128,8 +147,6 @@ public class VsProjectService
                     }
                 }
             }
-
-            SendMessage($"Found {vsFound} Visual Studio instance(s).");
         }
         catch (Exception ex)
         {

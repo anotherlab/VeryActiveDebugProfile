@@ -97,11 +97,13 @@ public partial class VsInstancesViewModel : ObservableObject
             });
     }
 
-    private static Uri GetImagePath(string imageFileName)
+    private Uri? _imagePath;
+    private Uri GetImagePath(string imageFileName)
     {
-        var imagePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Images", imageFileName); // Assumes an 'Images' folder in output directory
-        return (new Uri(imagePath));
+        _imagePath ??= new Uri(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Images", imageFileName)); // Assumes an 'Images' folder in output directory
+        return _imagePath;
     }
+
 
     private VsProjectService? _service;
     private VsProjectService GetService()
@@ -136,27 +138,24 @@ public partial class VsInstancesViewModel : ObservableObject
                     AddLog($"Skipped {project}");
             }
 
-            if (mauiProjects.Count > 0)
+            if (UpdateCount > 0)
             {
-                if (UpdateCount > 0)
-                {
-                    AddLog($"Updated {UpdateCount} MAUI project(s) successfully.");
+                AddLog($"Updated {UpdateCount} MAUI project(s) successfully.");
 
-                    var sledgeUri = GetImagePath("sledge.jpg");
+                var sledgeUri = GetImagePath("sledge.jpg");
 
-                    // Requires Microsoft.Toolkit.Uwp.Notifications NuGet package version 7.0 or greater
-                    new ToastContentBuilder()
-                        .AddArgument("action", "viewConversation")
-                        .AddArgument("conversationId", 9813)
-                        .AddText("MAUI Projects Updated")
-                        .AddInlineImage(sledgeUri)
-                        .AddText($"Updated {mauiProjects.Count} MAUI project(s) successfully.")
-                        .Show();
+                // Requires Microsoft.Toolkit.Uwp.Notifications NuGet package version 7.0 or greater
+                new ToastContentBuilder()
+                    .AddArgument("action", "viewConversation")
+                    .AddArgument("conversationId", 9813)
+                    .AddText("MAUI Projects Updated")
+                    .AddInlineImage(sledgeUri)
+                    .AddText($"Updated {mauiProjects.Count} MAUI project(s) successfully.")
+                    .Show();
 
-                    // Not seeing the Show() method? Make sure you have version 7.0, and if you're using .NET 6 (or later),
-                    // then your TFM must be net6.0-windows10.0.17763.0 or greater
+                // Not seeing the Show() method? Make sure you have version 7.0, and if you're using .NET 6 (or later),
+                // then your TFM must be net6.0-windows10.0.17763.0 or greater
 
-                }
             }
         }
         catch (Exception ex)
