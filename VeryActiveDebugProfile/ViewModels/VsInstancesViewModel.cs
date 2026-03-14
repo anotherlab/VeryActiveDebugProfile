@@ -10,21 +10,24 @@ namespace VeryActiveDebugProfile.ViewModels;
 
 public partial class VsInstancesViewModel : ObservableObject
 {
-    [ObservableProperty]
-    string _status = string.Empty;
+    private const int MaxEntries = 100;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DeviceStatusText))]
     [NotifyPropertyChangedFor(nameof(IsDeviceConnected))]
     string _deviceName = String.Empty;
+
     partial void OnDeviceNameChanged(string? oldValue, string newValue)
     {
+        // Log the change and refresh Visual Studio instances when a device is connected or disconnected
         if (!string.IsNullOrWhiteSpace(newValue))
         {
             AddLog($"Device connected: {newValue}");
+
             RefreshVs();
         }
 
+        // Reserved for future use: Show a balloon tip when device status changes. Must be on UI thread to interact with TaskbarIcon.
         App.Current.Dispatcher.Invoke(() =>
         {
             if (string.IsNullOrWhiteSpace(newValue))
@@ -49,11 +52,6 @@ public partial class VsInstancesViewModel : ObservableObject
             : $"Device connected: {DeviceName}";
 
 
-    [ObservableProperty]
-    bool _updateProgFiles = false;
-
-    public List<VsInstance> VsInstances { get; } = [];
-
     public ObservableCollection<LogEntry> LogEntries { get; } = [];
 
     public void AddLog(string message)
@@ -67,8 +65,6 @@ public partial class VsInstancesViewModel : ObservableObject
         if (LogEntries.Count > MaxEntries)
             LogEntries.RemoveAt(0); // remove oldest
     }
-
-    private const int MaxEntries = 100;
 
     [RelayCommand]
     private void Refresh()
@@ -107,18 +103,21 @@ public partial class VsInstancesViewModel : ObservableObject
         return (new Uri(imagePath));
     }
 
+    private VsProjectService? _service;
+    private VsProjectService GetService()
+    {
+        _service ??= new VsProjectService();
+        return _service;
+    }
+
     public void RefreshVs()
     {
         AddLog("Scanning for Visual Studio instances...");
+
         try
         {
-            var service = new Services.VsProjectService();
+            var service = GetService();
             var instances = service.GetVsInstances();
-            VsInstances.Clear();
-            foreach (var instance in instances)
-            {
-                VsInstances.Add(instance);
-            }
 
             var mauiProjects = VsProjectService.GetMauiProjectsByInstances(instances);
 
@@ -162,7 +161,7 @@ public partial class VsInstancesViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Status = $"Error: {ex.Message}";
+            AddLog($"Error: {ex.Message}");
         }
     }
 

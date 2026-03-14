@@ -1,14 +1,8 @@
 ﻿using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Win32.SafeHandles;
 using System.Collections.Specialized;
-using System.Diagnostics;
-using System.Management;
 using System.Reflection;
-using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
-using System.Text.RegularExpressions;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Interop;
 
 namespace VeryActiveDebugProfile
@@ -47,7 +41,6 @@ namespace VeryActiveDebugProfile
 
             _viewModel.LogEntries.CollectionChanged += MyItems_CollectionChanged;
 
-            //            Loaded += (_, _) => _placementService.Restore(this);
             Loaded += (_, _) =>
             {
                 _placementService.Restore(this);
@@ -119,12 +112,6 @@ namespace VeryActiveDebugProfile
         // Add cleanup
         protected override void OnClosed(EventArgs e)
         {
-            //if (_deviceNotificationHandleUsb != IntPtr.Zero)
-            //{
-            //    UnregisterDeviceNotification(_deviceNotificationHandleUsb);
-            //    _deviceNotificationHandleUsb = IntPtr.Zero;
-            //}
-
             _deviceNotifyHandle?.Dispose();
 
             base.OnClosed(e);
@@ -232,15 +219,6 @@ namespace VeryActiveDebugProfile
         /// <param name="windowHandle"></param>
         private void RegisterForDeviceNotifications(IntPtr windowHandle)
         {
-            // Register for USB device interface notifications
-            //var filterUsb = new DEV_BROADCAST_DEVICEINTERFACE
-            //{
-            //    dbcc_size = Marshal.SizeOf(typeof(DEV_BROADCAST_DEVICEINTERFACE)),
-            //    dbcc_devicetype = DBT_DEVTYP_DEVICEINTERFACE,
-            //    dbcc_reserved = 0,
-            //    dbcc_classguid = GUID_DEVINTERFACE_USB_DEVICE,
-            //    dbcc_name = string.Empty
-            //};
             var filterUsb = new DEV_BROADCAST_DEVICEINTERFACE
             {
                 dbcc_size = Marshal.SizeOf<DEV_BROADCAST_DEVICEINTERFACE>(),
@@ -265,46 +243,6 @@ namespace VeryActiveDebugProfile
                 Marshal.FreeHGlobal(bufferUsb);
             }
         }
-        //private void RegisterForDeviceNotifications(IntPtr windowHandle)
-        //{
-        //    // 1. Get the size using the generic method (fixes CA2263)
-        //    int size = Marshal.SizeOf<DEV_BROADCAST_DEVICEINTERFACE>();
-
-        //    // 2. Allocate memory on the stack (zero-allocation on the heap)
-        //    // We use byte so we can control the size exactly
-        //    Span<byte> buffer = stackalloc byte[size];
-
-        //    // 3. Initialize the struct
-        //    var filterUsb = new DEV_BROADCAST_DEVICEINTERFACE
-        //    {
-        //        dbcc_size = size,
-        //        dbcc_devicetype = DBT_DEVTYP_DEVICEINTERFACE,
-        //        dbcc_classguid = GUID_DEVINTERFACE_USB_DEVICE,
-        //        dbcc_name = string.Empty
-        //    };
-
-        //    // 4. Copy the struct into our stack memory
-        //    MemoryMarshal.Write(buffer, ref filterUsb);
-
-        //    unsafe
-        //    {
-        //        // 5. Get a pointer to the stack memory and call the native method
-        //        fixed (byte* pBuffer = buffer)
-        //        {
-        //            _deviceNotifyHandle = NativeMethods.RegisterDeviceNotification(
-        //                windowHandle,
-        //                (IntPtr)pBuffer,
-        //                DEVICE_NOTIFY_WINDOW_HANDLE);
-        //        }
-        //    }
-
-        //    if (_deviceNotifyHandle == null || _deviceNotifyHandle.IsInvalid)
-        //    {
-        //        SendMessage("Failed to register for USB device notifications");
-        //    }
-
-        //    // Look, Ma! No Marshal.FreeHGlobal()!
-        //}
         #region P/Invoke Declarations
 
         [StructLayout(LayoutKind.Sequential)]
@@ -324,14 +262,7 @@ namespace VeryActiveDebugProfile
             public Guid dbcc_classguid;
             [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
             public string dbcc_name;
-            //public fixed char dbcc_name[256];
         }
-
-        //[DllImport("user32.dll", SetLastError = true)]
-        //private static extern IntPtr RegisterDeviceNotification(IntPtr hRecipient, IntPtr notificationFilter, uint flags);
-
-        //[DllImport("user32.dll", SetLastError = true)]
-        //private static extern bool UnregisterDeviceNotification(IntPtr handle);
 
         #endregion
     }
