@@ -3,6 +3,11 @@ using System.Runtime.InteropServices;
 
 namespace VeryActiveDebugProfile.Services
 {
+    /// <summary>
+    /// Custom SafeHandle implementation for device notification handles. 
+    /// This ensures that the handle is properly released when no longer 
+    /// needed, preventing resource leaks.
+    /// </summary>
     public sealed class SafeDeviceNotificationHandle : SafeHandleZeroOrMinusOneIsInvalid
     {
         // The constructor must be public for the P/Invoke marshaller

@@ -11,10 +11,10 @@
     <Platforms>AnyCPU;x64</Platforms>
 
     <!-- Set the application version properties -->
-    <Version>1.0.0.1</Version>
-    <AssemblyVersion>1.0.0.1</AssemblyVersion>
-    <FileVersion>1.0.0.1</FileVersion>
-    <InformationalVersion>1.0.0.1-beta</InformationalVersion>	  
+    <Version>1.0.0.2</Version>
+    <AssemblyVersion>1.0.0.2</AssemblyVersion>
+    <FileVersion>1.0.0.2</FileVersion>
+    <InformationalVersion>1.0.0.2</InformationalVersion>	  
   </PropertyGroup>
 
     <PropertyGroup>

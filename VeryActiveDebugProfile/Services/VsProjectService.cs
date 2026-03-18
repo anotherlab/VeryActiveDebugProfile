@@ -27,13 +27,13 @@ public class VsProjectService
     /// </summary>
     /// <returns>A list of strings containing the names of all detected .NET MAUI projects. The list is empty if no MAUI projects
     /// are found.</returns>
-    public List<string> GetMauiProjects()
-    {
-        var vsInstances = GetVsInstances();
-        var result = GetMauiProjectsByInstances(vsInstances);
+    //public List<string> GetMauiProjects()
+    //{
+    //    var vsInstances = GetVsInstances();
+    //    var result = GetMauiProjectsByInstances(vsInstances);
 
-        return result;
-    }
+    //    return result;
+    //}
 
     /// <summary>
     /// Retrieves the file paths of all MAUI projects contained within the specified Visual Studio instance.
@@ -278,11 +278,13 @@ public class VsProjectService
         if (string.IsNullOrWhiteSpace(activeDebugProfile))
             throw new ArgumentException("ActiveDebugProfile cannot be null or empty.", nameof(activeDebugProfile));
 
+        // Get the user profile path by appending .user to the .csproj file path
         var userFilePath = csprojFullPath + ".user";
 
         XDocument doc;
         XNamespace ns;
 
+        // Load existing .csproj.user file or create a new one if it doesn't exist
         if (File.Exists(userFilePath))
         {
             doc = XDocument.Load(userFilePath);
@@ -303,6 +305,8 @@ public class VsProjectService
 
         var root = doc.Root ?? throw new InvalidOperationException("Invalid .user file structure.");
 
+        // get the PropertyGroup element, or create it if it doesn't exist
+
         var propertyGroup = root.Elements(ns + "PropertyGroup").FirstOrDefault();
         if (propertyGroup == null)
         {
@@ -310,6 +314,7 @@ public class VsProjectService
             root.Add(propertyGroup);
         }
 
+        // get the ActiveDebugProfile element, or create it if it doesn't exist
         var activeDebugProfileElement = propertyGroup
             .Elements(ns + "ActiveDebugProfile")
             .FirstOrDefault();
@@ -323,6 +328,7 @@ public class VsProjectService
         if (activeDebugProfileElement.Value.Contains(activeDebugProfile))
             return 0;
 
+        // Update the ActiveDebugProfile value
         activeDebugProfileElement.Value = activeDebugProfile;
 
         doc.Save(userFilePath);

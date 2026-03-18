@@ -1,9 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿namespace VeryActiveDebugProfile.Models;
 
-namespace VeryActiveDebugProfile.Models;
-
+/// <summary>
+/// Class representing a log entry with a timestamp and message.
+/// </summary>
 public class LogEntry
 {
     public DateTime Timestamp { get; set; }
