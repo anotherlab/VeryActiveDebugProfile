@@ -1,9 +1,7 @@
 ﻿using Hardcodet.Wpf.TaskbarNotification;
 using Microsoft.Win32;
-using System.Configuration;
 using System.Data;
 using System.Windows;
-using VeryActiveDebugProfile.Services;
 
 namespace VeryActiveDebugProfile;
 
@@ -27,6 +25,7 @@ public partial class App : Application
         LoadCustomTheme();
         SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
 
+        // Reserved for future use: Initialize the system tray icon and notification manager
         //TrayIcon = (TaskbarIcon)Resources["MyNotifyIcon"];
         // Initialize the AppNotificationManager
         //AppNotificationManager.Default.NotificationInvoked += OnNotificationInvoked;
@@ -34,12 +33,15 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        // Reserved for future use: Initialize the system tray icon and notification manager
         //AppNotificationManager.Default.Unregister();
         //TrayIcon?.Dispose();
+
         SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
         base.OnExit(e);
     }
 
+    // Reserved for future use: Initialize the system tray icon and notification manager
     //private void OnNotificationInvoked(object sender, AppNotificationActivatedEventArgs args)
     //{
     //    // Process the arguments to determine user action
@@ -50,6 +52,14 @@ public partial class App : Application
     //    }
     //}
 
+    /// <summary>
+    /// When the user changes their system theme (light/dark), this event is triggered. 
+    /// We check if the change is related to general preferences. If it is, we reload 
+    /// the appropriate theme resource dictionary to ensure our app's appearance matches 
+    /// the user's system theme preference.
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
     private void OnUserPreferenceChanged(object? sender, UserPreferenceChangedEventArgs e)
     {
         if (e.Category == UserPreferenceCategory.General)

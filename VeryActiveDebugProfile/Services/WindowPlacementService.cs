@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using System.Reflection;
 using System.Text.Json;
 using System.Windows;
 
@@ -6,18 +7,21 @@ namespace VeryActiveDebugProfile.Services;
 
 public class WindowPlacementService : IWindowPlacementService
 {
+    private readonly string _filePath;
+
     private static readonly JsonSerializerOptions s_jsonSerializerOptions = new()
     {
         WriteIndented = true
     };
 
-    private readonly string _filePath;
-
     public WindowPlacementService()
     {
+        var appName = Assembly.GetEntryAssembly()?.GetName().Name
+                      ?? Assembly.GetExecutingAssembly().GetName().Name;
+
         var folder = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "YourApp");
+            appName);
 
         Directory.CreateDirectory(folder);
 
@@ -116,5 +120,4 @@ public class WindowPlacementService : IWindowPlacementService
 
         return [.. monitors];
     }
-
 }

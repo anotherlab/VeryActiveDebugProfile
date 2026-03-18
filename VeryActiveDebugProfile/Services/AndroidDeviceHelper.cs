@@ -2,10 +2,15 @@
 
 namespace VeryActiveDebugProfile.Services;
 
+/// <summary>
+/// Helper class to identify Android device manufacturers based on their USB Vendor IDs (VIDs).
+/// </summary>
 public static class AndroidDeviceHelper
 {
     // FrozenDictionary is optimized for read-heavy lookup scenarios 
     // where the set of keys never changes after initialization.
+    // If you have an Android device with a VID that is not listed here, you can add it to this dictionary.
+    // I take pull requests to update this list as new devices are released or if you find any missing entries.
     private static readonly FrozenDictionary<string, string> AndroidVendorIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         { "18D1", "Google (Nexus/Pixel/Generic)" },
@@ -24,16 +29,6 @@ public static class AndroidDeviceHelper
         { "0489", "Foxconn" },
         { "0955", "NVIDIA (Shield)" }
     }.ToFrozenDictionary();
-
-    /// <summary>
-    /// Identifies the manufacturer from a string formatted like "04E8"
-    /// </summary>
-    public static string GetManufacturer(string vid)
-    {
-        return AndroidVendorIds.TryGetValue(vid, out var manufacturer)
-            ? manufacturer
-            : "Unknown Vendor";
-    }
 
     /// <summary>
     /// Identifies the manufacturer from a string formatted like "VID_04E8&PID_6860"

@@ -25,25 +25,13 @@ namespace VeryActiveDebugProfile.Services;
  * https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_wql?view=powershell-7.5
  */
 
+/// <summary>
+/// Class to help identify connected devices using WMI queries. 
+/// This is used to find the model name of connected Android devices, 
+/// but can be adapted for other types of devices as well.
+/// </summary>
 public class PnpHelper
 {
-    public static string GetVendorAndProductfromPnpDeviceId(string pnpDeviceId)
-    {
-        // 1. Split the string by backslash
-        string[] segments = pnpDeviceId.Split('\\');
-
-        // segments[0] is "USB"
-        // segments[1] is "VID_04E8&PID_6860&ADB"
-
-        // 2. Split the second segment by '&' to isolate the VID and PID
-        string[] idParts = segments[1].Split('&');
-
-        // 3. Recombine: "VID_xxxx" + "&" + "PID_xxxx"
-        string result = $"{idParts[0]}&{idParts[1]}";
-
-        return result;
-    }
-
     public static string GetVendorAndProductfromPath(string devicePath)
     {
         string cleanPath = devicePath.Replace(@"\\?\", "");

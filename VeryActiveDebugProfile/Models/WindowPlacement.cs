@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace VeryActiveDebugProfile.Models;
+﻿namespace VeryActiveDebugProfile.Models;
 
 public class WindowPlacement
 {

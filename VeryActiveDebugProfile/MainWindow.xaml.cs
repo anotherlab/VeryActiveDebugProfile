@@ -1,5 +1,4 @@
 ﻿using CommunityToolkit.Mvvm.Messaging;
-using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -13,11 +12,10 @@ namespace VeryActiveDebugProfile
     /// </summary>
     public partial class MainWindow : Window
     {
+        // Windows message constants for device change notifications
         private const int WM_DEVICECHANGE = 0x0219;
         private const int DBT_DEVICEARRIVAL = 0x8000;
         private const int DBT_DEVICEREMOVECOMPLETE = 0x8004;
-
-        // Add these constants at class level
         private const int DBT_DEVTYP_DEVICEINTERFACE = 0x00000005;
         private const uint DEVICE_NOTIFY_WINDOW_HANDLE = 0x00000000;
 
@@ -152,6 +150,7 @@ namespace VeryActiveDebugProfile
 
                         if (manufacturer != null)
                         {
+                            // Then check to see if we already have this device in our list of connected Android devices. If not, we add it and update the status.
                             _connectedAndroidPaths[devicePath] = vid;
                             SendMessage($"{manufacturer} device detected ");
 
